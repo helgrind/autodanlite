@@ -46,6 +46,44 @@ const drink_list = {
     }
 };
 
+const glasses = {
+    1: { pint:0 ,wine:0 ,tumbler:2 ,prosecco:0 },
+    2: { pint:1 ,wine:0 ,tumbler:2 ,prosecco:0 },
+    3: { pint:0 ,wine:4 ,tumbler:2 ,prosecco:0 },
+    4: { pint:0 ,wine:4 ,tumbler:0 ,prosecco:4 },
+    5: { pint:0 ,wine:4 ,tumbler:4 ,prosecco:4 },
+    6: { pint:0 ,wine:4 ,tumbler:4 ,prosecco:0 },
+    7: { pint:0 ,wine:0 ,tumbler:3 ,prosecco:0 },
+    9: { pint:0 ,wine:0 ,tumbler:3 ,prosecco:0 },
+    10: { pint:0 ,wine:0 ,tumbler:3 ,prosecco:0 },
+    11: { pint:6 ,wine:6 ,tumbler:6 ,prosecco:0 },
+    13: { pint:0 ,wine:7 ,tumbler:7 ,prosecco:0 },
+    15: { pint:1 ,wine:0 ,tumbler:0 ,prosecco:3 },
+    16: { pint:0 ,wine:3 ,tumbler:3 ,prosecco:0 },
+    17: { pint:0 ,wine:3 ,tumbler:1 ,prosecco:0 },
+    18: { pint:0 ,wine:3 ,tumbler:3 ,prosecco:0 },
+    19: { pint:1 ,wine:8 ,tumbler:8 ,prosecco:1 },
+    21: { pint:0 ,wine:4 ,tumbler:4 ,prosecco:0 },
+    22: { pint:0 ,wine:0 ,tumbler:4 ,prosecco:0 },
+    23: { pint:1 ,wine:4 ,tumbler:4 ,prosecco:0 },
+    24: { pint:3 ,wine:4 ,tumbler:2 ,prosecco:4 },
+    25: { pint:1 ,wine:4 ,tumbler:4 ,prosecco:0 },
+    26: { pint:0 ,wine:4 ,tumbler:4 ,prosecco:4 },
+    27: { pint:4 ,wine:4 ,tumbler:4 ,prosecco:0 },
+    28: { pint:0 ,wine:0 ,tumbler:1 ,prosecco:4 },
+    29: { pint:0 ,wine:4 ,tumbler:4 ,prosecco:0 },
+    30: { pint:4 ,wine:4 ,tumbler:3 ,prosecco:0 },
+    31: { pint:4 ,wine:4 ,tumbler:4 ,prosecco:0 },
+    32: { pint:4 ,wine:0 ,tumbler:3 ,prosecco:4 },
+    33: { pint:1 ,wine:0 ,tumbler:3 ,prosecco:0 },
+    34: { pint:3 ,wine:0 ,tumbler:3 ,prosecco:0 },
+    35: { pint:2 ,wine:3 ,tumbler:1 ,prosecco:2 },
+    36: { pint:0 ,wine:4 ,tumbler:2 ,prosecco:4 },
+    37: { pint:0 ,wine:8 ,tumbler:8 ,prosecco:8 },
+    39: { pint:2 ,wine:2 ,tumbler:2 ,prosecco:0 },
+    40: { pint:0 ,wine:3 ,tumbler:0 ,prosecco:0 },
+};
+
 // Import CSV
 function load_csv(csv_path) {
     const fh = readFileSync(csv_path);
@@ -132,11 +170,11 @@ function populate_tables(records, drink_list) {
                 }
                 a[a_len-1].pax = (parseInt(a[a_len-1].pax) + parseInt(c.pax)).toString();
                 a[a_len-1].soft_drinks = merge_drinks(a[a_len-1].soft_drinks, c.soft_drinks);
-                a[a_len-1].wines = a[a_len-1].wines.concat(c.wines);
-                a[a_len-1].ciders = a[a_len-1].ciders.concat(c.ciders);
-                a[a_len-1].ales = a[a_len-1].ales.concat(c.ales);
-                a[a_len-1].spirits = a[a_len-1].spirits.concat(c.spirits);
-                a[a_len-1].specials = a[a_len-1].specials.concat(c.specials);
+                a[a_len-1].wines = merge_drinks(a[a_len-1].wines, c.wines);
+                a[a_len-1].ciders = merge_drinks(a[a_len-1].ciders, c.ciders);
+                a[a_len-1].ales = merge_drinks(a[a_len-1].ales, c.ales);
+                a[a_len-1].spirits = merge_drinks(a[a_len-1].spirits, c.spirits);
+                a[a_len-1].specials = merge_drinks(a[a_len-1].specials, c.specials);
             } else {
                 a.push(c);
             }
@@ -148,6 +186,16 @@ function populate_tables(records, drink_list) {
     return merged_tables;
 }
 
+// Generate glasses
+function add_glasses(tables) {
+    for (const table of tables) {
+        if (glasses[table.number]) {
+            table.glasses = glasses[table.number];
+        }
+    }
+    return tables;
+}
+
 // Generate carriage ends drinks lists
 function gen_crate_labels(tables) {
     const ranges = [
@@ -156,7 +204,6 @@ function gen_crate_labels(tables) {
         {coach: "C", coach_end:"Parkend", start: 17, end: 24, tables: [], colddrinks: [], warmdrinks: []},
         {coach: "C", coach_end:"Lydney", start: 25, end: 32, tables: [], colddrinks: [], warmdrinks: []},
         {coach: "D", coach_end:"Parkend", start: 33, end: 40, tables: [], colddrinks: [], warmdrinks: []},
-        {coach: "D", coach_end:"Lydney", start: 43, end: 48, tables: [], colddrinks: [], warmdrinks: []}, 
     ];
     for(const table of tables) {
         for(const range of ranges) {
@@ -218,14 +265,13 @@ function print_tables(tables) {
             .fontSize(32)
             .text(`Table: ${table.number}`)
             .font('Helvetica')
-            .fontSize(20)
-            .moveDown();
+            .fontSize(16)
 
         if(table.plus_tables.length>0){
             doc.text(`Includes tables: ${table.plus_tables}`);
         }
         doc
-            .fontSize(20).text(`Contact(s): ${table.name}`).fontSize(20)
+            .fontSize(16).text(`Contact(s): ${table.name}`).fontSize(16)
             .text(`Total drinks: ${table.pax}`);
         if(table.notes != ""){
             doc.text(`Notes: ${table.notes}`);
@@ -240,6 +286,14 @@ function print_tables(tables) {
                 }
                 doc.text([item.qty, item.name].join(" of "));
             }
+        }
+        if (table.glasses) {
+            doc.moveDown();
+            doc.fillColor("black");
+            if (table.glasses.tumbler > 0) doc.text(`Tumblers: ${table.glasses.tumbler}`);
+            if (table.glasses.wine > 0) doc.text(`Wine glasses: ${table.glasses.wine}`);
+            if (table.glasses.pint > 0) doc.text(`Pint glasses: ${table.glasses.pint}`);
+            if (table.glasses.prosecco > 0) doc.text(`Prosecco glasses: ${table.glasses.prosecco}`);
         }
     }
     
@@ -291,6 +345,12 @@ function print_summary_list(tables) {
     const doc = new PDFDocument({size: 'A4'});
     doc.pipe(createWriteStream('Summary.pdf'));
     doc.fontSize(12);
+
+    doc.text(`Total tumblers: ${Object.keys(glasses).reduce((a,c) => {return a + glasses[c].tumbler;}, 0)}`);
+    doc.text(`Total wine glasses: ${Object.keys(glasses).reduce((a,c) => {return a + glasses[c].wine;}, 0)}`);
+    doc.text(`Total pint glasses: ${Object.keys(glasses).reduce((a,c) => {return a + glasses[c].pint;}, 0)}`);
+    doc.text(`Total prosecco glasses: ${Object.keys(glasses).reduce((a,c) => {return a + glasses[c].prosecco;}, 0)}`);
+    doc.moveDown();
     
     for(const table of tables) {
         doc.fontSize(20).text(" ", {continued: true, baseline: "hanging"}).fontSize(12);
@@ -325,8 +385,9 @@ function print_summary_list(tables) {
 function labels_from_csv(csv_path) {
     const records = load_csv(csv_path);
     const tables = populate_tables(records, drink_list);
+    const tables_with_glasses = add_glasses(tables, glasses);
     const crate_labels = gen_crate_labels(tables);
-    print_tables(tables);
+    print_tables(tables_with_glasses);
     print_crate_labels(crate_labels);
     print_summary_list(tables);
 };
