@@ -56,6 +56,7 @@ function load_csv(csv_path) {
         bom: true
     });
     records = records.slice(1);
+    records = records.sort((a, b) => parseInt(a["Table Number(s)"].split(",")[0]) - parseInt(b["Table Number(s)"].split(",")[0]));
     for(const record of records) {
         record.Customers = record.Customers.replace("Bottles", "Bottle");
     };
@@ -242,6 +243,41 @@ function print_crate_labels(crate_labels) {
     doc.end();
 }
 
+// Print a summary list as backup.
+function print_summary_list(tables) {
+    const doc = new PDFDocument({size: 'A4'});
+    doc.pipe(createWriteStream('Summary.pdf'));
+    doc.fontSize(12);
+    
+    for(const table of tables) {
+        doc.fontSize(20).text(" ", {continued: true, baseline: "hanging"}).fontSize(12);
+        doc.text("Table: ", {continued: true});
+        doc.fontSize(20).text(table.number, {continued: true, baseline: "hanging"}).fontSize(12);
+        doc.text(`, Contact: ${table.name}, Group size: ${table.pax}`, {baseline: "top"});
+        if(table.plus_tables.length>0){
+            doc.text(`Includes tables: ${table.plus_tables}`, {oblique: true});
+        }
+        if(table.notes != ""){
+            doc.text(`Notes: ${table.notes}`, {oblique: true});
+        }
+        doc.moveDown(0.5);
+        for(const drink_type of ["soft_drinks", "wines", "ciders", "ales", "spirits", "specials"]) {
+            for(const item of table[drink_type]) {
+                if(item.type == "WARM") {
+                    doc.fillColor("red");
+                } else {
+                    doc.fillColor("blue");
+                }
+                doc.text([item.qty, item.name].join(" of ") + ", ", {continued: true});
+            }
+        }
+        doc.fillColor("black");
+        doc.text(" ");
+        doc.moveDown();
+    }
+    doc.end();
+}
+
 // Wrap it all up
 function labels_from_csv(csv_path) {
     const records = load_csv(csv_path);
@@ -249,6 +285,7 @@ function labels_from_csv(csv_path) {
     const crate_labels = gen_crate_labels(tables);
     print_tables(tables);
     print_crate_labels(crate_labels);
+    print_summary_list(tables);
 };
 
 export default labels_from_csv;
