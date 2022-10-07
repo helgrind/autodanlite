@@ -30,15 +30,15 @@ const drink_list = {
     },
     "ales": {
         "Steam IPA (4.6% vol)": {"name": "STEAM IPA", "type": "WARM"},
-        "Copper Top Blonde (3.5% vol)": {"name": "COPPER TOP", "type": "WARM"},
+        "Copper Top Blonde (3.5%)": {"name": "COPPER TOP", "type": "WARM"},
         "Shunters Best Bitter (4.2% vol)": {"name": "SHUNTERS", "type": "WARM"}
     },
     "spirits": {
-        "Smirnoff Vodka (37.5% vol)": {"name": "VODKA", "type": "WARM"},
-        "Bacardi White Rum (37.5% vol)": {"name": "RUM", "type": "WARM"},
-        "Gordon's Gin (37.5% vol)": {"name": "GIN", "type": "WARM"},
-        "Gordon's Pink Gin (37.5% vol)": {"name": "PINK GIN", "type": "WARM"},
-        "Jacobite Whisky (40% vol)": {"name": "WHISKY", "type": "WARM"},
+        "Smirnoff Vodka (37.5% vol)": {"name": "VODKA", "type": "COLD"},
+        "Bacardi White Rum (37.5% vol)": {"name": "RUM", "type": "COLD"},
+        "Gordon's Gin (37.5% vol)": {"name": "GIN", "type": "COLD"},
+        "Gordon's Pink Gin (37.5% vol)": {"name": "PINK GIN", "type": "COLD"},
+        "Jacobite Whisky (40% vol)": {"name": "WHISKY", "type": "COLD"},
     },
     "specials": {
         "Prosecco (20cl Bottle)": {"name": "SMALL PROSECCO", "type": "COLD"},
@@ -102,18 +102,61 @@ function populate_tables(records, drink_list) {
         };
         tables.push(JSON.parse(JSON.stringify(table))); // Deep copy
     }
-    return tables;
+    // Merge table duplicates
+    function merge_drinks(current, next) {
+        for (const drink of next) {
+            let found = false;
+            for (const cdrink of current) {
+                if (cdrink.name == drink.name) {
+                    cdrink.qty = (parseInt(cdrink.qty) + parseInt(drink.qty)).toString();
+                    found = true;
+                }
+            }
+            if (!found) current.push(drink);
+        }
+        return current;
+    }
+
+    const merged_tables = tables.reduce((a, c, i) => { 
+        let a_len = a.length;
+        if (a_len > 0) {
+            if (a[a_len-1].number == c.number) {
+                if(a[a_len-1].name != "" && a[a_len-1].name != c.name) {
+                    a[a_len-1].name = [ a[a_len-1].name, c.name ].join(", ");
+                }
+                if(a[a_len-1].plus_tables != [] && a[a_len-1].plus_tables != c.plus_tables) {
+                    a[a_len-1].plus_tables.concat(c.plus_tables);
+                }
+                if(a[a_len-1].notes != "" && a[a_len-1].notes != c.notes) {
+                    a[a_len-1].notes = [ a[a_len-1].notes, c.plus_tables ].join("; ");
+                }
+                a[a_len-1].pax = (parseInt(a[a_len-1].pax) + parseInt(c.pax)).toString();
+                a[a_len-1].soft_drinks = merge_drinks(a[a_len-1].soft_drinks, c.soft_drinks);
+                a[a_len-1].wines = a[a_len-1].wines.concat(c.wines);
+                a[a_len-1].ciders = a[a_len-1].ciders.concat(c.ciders);
+                a[a_len-1].ales = a[a_len-1].ales.concat(c.ales);
+                a[a_len-1].spirits = a[a_len-1].spirits.concat(c.spirits);
+                a[a_len-1].specials = a[a_len-1].specials.concat(c.specials);
+            } else {
+                a.push(c);
+            }
+        } else {
+            a.push(c);
+        }
+        return a;
+    }, []);
+    return merged_tables;
 }
 
 // Generate carriage ends drinks lists
 function gen_crate_labels(tables) {
     const ranges = [
-        {coach: "A", coach_end:"Lydney", start: 1, end: 7, tables: [], colddrinks: [], warmdrinks: []},
-        {coach: "A", coach_end:"Parkend", start: 8, end: 16, tables: [], colddrinks: [], warmdrinks: []},
-        {coach: "C", coach_end:"Lydney", start: 17, end: 24, tables: [], colddrinks: [], warmdrinks: []},
-        {coach: "C", coach_end:"Parkend", start: 25, end: 32, tables: [], colddrinks: [], warmdrinks: []},
-        {coach: "D", coach_end:"Lydney", start: 33, end: 40, tables: [], colddrinks: [], warmdrinks: []},
-        {coach: "D", coach_end:"Parkend", start: 43, end: 48, tables: [], colddrinks: [], warmdrinks: []}, 
+        {coach: "A", coach_end:"Parkend", start: 1, end: 7, tables: [], colddrinks: [], warmdrinks: []},
+        {coach: "A", coach_end:"Lydney", start: 8, end: 16, tables: [], colddrinks: [], warmdrinks: []},
+        {coach: "C", coach_end:"Parkend", start: 17, end: 24, tables: [], colddrinks: [], warmdrinks: []},
+        {coach: "C", coach_end:"Lydney", start: 25, end: 32, tables: [], colddrinks: [], warmdrinks: []},
+        {coach: "D", coach_end:"Parkend", start: 33, end: 40, tables: [], colddrinks: [], warmdrinks: []},
+        {coach: "D", coach_end:"Lydney", start: 43, end: 48, tables: [], colddrinks: [], warmdrinks: []}, 
     ];
     for(const table of tables) {
         for(const range of ranges) {
@@ -182,8 +225,8 @@ function print_tables(tables) {
             doc.text(`Includes tables: ${table.plus_tables}`);
         }
         doc
-            .text(`Contact: ${sanitised_name}`)
-            .text(`Group size: ${table.pax}`);
+            .fontSize(20).text(`Contact(s): ${table.name}`).fontSize(20)
+            .text(`Total drinks: ${table.pax}`);
         if(table.notes != ""){
             doc.text(`Notes: ${table.notes}`);
         }
@@ -207,7 +250,7 @@ function print_tables(tables) {
 function print_crate_labels(crate_labels) {
     const doc = new PDFDocument({size: 'A5', autoFirstPage: false});
     doc.pipe(createWriteStream('Crates.pdf'));
-    doc.fontSize(20);
+    doc.fontSize(16);
     
     for(const crate_label of crate_labels) {
         doc
@@ -217,7 +260,7 @@ function print_crate_labels(crate_labels) {
             .text(`Coach: ${crate_label.coach}`)
             .text(`(${crate_label.coach_end} end)`)
             .font('Helvetica')
-            .fontSize(18);
+            .fontSize(16);
         for(const [item, qty] of Object.entries(crate_label.warmdrinks)) {
             doc.text([qty, item].join(" of "));
         }
@@ -231,7 +274,7 @@ function print_crate_labels(crate_labels) {
             .text(`Coach: ${crate_label.coach}`)
             .text(`(${crate_label.coach_end} end)`)
             .font('Helvetica')
-            .fontSize(18);
+            .fontSize(16);
         for(const [item, qty] of Object.entries(crate_label.colddrinks)) {
             doc.text([qty, item].join(" of "));
         }
@@ -253,7 +296,7 @@ function print_summary_list(tables) {
         doc.fontSize(20).text(" ", {continued: true, baseline: "hanging"}).fontSize(12);
         doc.text("Table: ", {continued: true});
         doc.fontSize(20).text(table.number, {continued: true, baseline: "hanging"}).fontSize(12);
-        doc.text(`, Contact: ${table.name}, Group size: ${table.pax}`, {baseline: "top"});
+        doc.text(`, Contact: ${table.name}, Total drinks: ${table.pax}`, {baseline: "top"});
         if(table.plus_tables.length>0){
             doc.text(`Includes tables: ${table.plus_tables}`, {oblique: true});
         }
@@ -290,4 +333,4 @@ function labels_from_csv(csv_path) {
 
 export default labels_from_csv;
 
-labels_from_csv("data.csv");
+labels_from_csv("1938-drinks.csv");
